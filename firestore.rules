@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    function isVerified() {
+      // In development environments with simple email auth, email_verified might not be enforced,
+      // but guidelines say we should mandate it for standard write operations.
+      // However, if we just use signInWithPopup, emailVerified is true for Google Auth.
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    function existing() { 
+      return resource.data; 
+    }
+    function incoming() { 
+      return request.resource.data; 
+    }
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    function isHardcodedAdmin() {
+      // The user requesting this is coppolek@gmail.com
+      return isSignedIn() && request.auth.token.email == 'coppolek@gmail.com';
+    }
+    
+    function isUserOrAdmin(userId) {
+      return (isSignedIn() && request.auth.uid == userId) || isHardcodedAdmin() || isAdmin();
+    }
+
+    // Users Collection
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'isAdmin', 'createdAt']) &&
+        data.keys().size() == 3 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
+        data.isAdmin is bool &&
+        data.createdAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isUserOrAdmin(userId);
+      // Let admins list users, users cannot list all users.
+      // Since we can't do allow list: if true securely without validating, we use identity check.
+      allow list: if isHardcodedAdmin() || isAdmin();
+      
+      allow create: if isValidId(userId) &&
+        isSignedIn() && request.auth.uid == userId &&
+        isValidUser(incoming()) &&
+        incoming().email == request.auth.token.email &&
+        // Only hardcoded admin can create themselves as admin
+        (incoming().isAdmin == false || isHardcodedAdmin());
+
+      allow update: if isValidId(userId) &&
+        isSignedIn() && 
+        (
+          (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly([])) || // User cannot update anything right now
+          ( (isHardcodedAdmin() || isAdmin()) && incoming().diff(existing()).affectedKeys().hasOnly(['isAdmin']) )
+        );
+        
+      allow delete: if isValidId(userId) && (isHardcodedAdmin() || isAdmin());
+    }
+
+    // Posts Collection
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'content', 'type', 'authorId', 'createdAt', 'updatedAt']) &&
+        data.keys().size() == 6 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() > 0 && data.content.size() <= 50000 &&
+        data.type is string && (data.type == 'review' || data.type == 'tutorial') &&
+        data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128 &&
+        // No request.time for timestamps in this simple validation since we separate create/update logic below
+        true;
+    }
+
+    match /posts/{postId} {
+      allow get: if isValidId(postId);
+      allow list: if true; // Publicly readable blog
+      
+      allow create: if isValidId(postId) && 
+        (isHardcodedAdmin() || isAdmin()) &&
+        isValidPost(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(postId) &&
+        (isHardcodedAdmin() || isAdmin()) &&
+        incoming().authorId == existing().authorId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'type', 'updatedAt']);
+
+      allow delete: if isValidId(postId) && (isHardcodedAdmin() || isAdmin());
+    }
+
+    // Comments Collection
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'authorId', 'authorEmail', 'content', 'status', 'createdAt']) &&
+        data.keys().size() == 6 &&
+        data.postId is string && data.postId.size() > 0 && data.postId.size() <= 128 &&
+        data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128 &&
+        data.authorEmail is string && data.authorEmail.size() > 0 && data.authorEmail.size() <= 200 &&
+        data.content is string && data.content.size() > 0 && data.content.size() <= 5000 &&
+        data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
+        true;
+    }
+
+    match /comments/{commentId} {
+      allow get: if isValidId(commentId) && (
+        existing().status == 'approved' || 
+        (isSignedIn() && request.auth.uid == existing().authorId) || 
+        (isHardcodedAdmin() || isAdmin())
+      );
+      
+      allow list: if 
+        (isHardcodedAdmin() || isAdmin()) ||
+        resource.data.status == 'approved' ||
+        (isSignedIn() && resource.data.authorId == request.auth.uid);
+        
+      allow create: if isValidId(commentId) &&
+        isSignedIn() &&
+        isValidComment(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().authorEmail == request.auth.token.email &&
+        (incoming().status == 'pending' || ((isHardcodedAdmin() || isAdmin()) && (incoming().status == 'approved' || incoming().status == 'rejected'))) &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/posts/$(incoming().postId));
+
+      allow update: if isValidId(commentId) && (
+        ((isHardcodedAdmin() || isAdmin()) && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+
+      allow delete: if isValidId(commentId) && (
+        (isSignedIn() && request.auth.uid == existing().authorId) || (isHardcodedAdmin() || isAdmin())
+      );
+    }
+  }
+}

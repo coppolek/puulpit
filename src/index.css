@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-serif: Arial, Helvetica, sans-serif;
+  --color-brand-bg: #FFFFFF;
+  --color-brand-text: #000000;
+  --color-brand-input: #F5F5F5;
+  --color-brand-secondary: #F0EFEC;
+}
