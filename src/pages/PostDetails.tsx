@@ -5,6 +5,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Markdown from 'react-markdown';
 import { ArrowLeft, Clock, Twitter, Facebook, Linkedin, Share2, Check, X, Loader2, ImageOff } from 'lucide-react';
+import AdBanner from '../components/AdBanner';
 
 interface Post {
   id: string;
@@ -328,6 +329,8 @@ export default function PostDetails() {
           {post.title}
         </h1>
       </header>
+      
+      <AdBanner />
 
       <div className="prose prose-lg prose-slate prose-headings:font-sans prose-headings:font-black prose-headings:tracking-tighter prose-headings:uppercase prose-a:font-bold prose-h1:text-[50px] prose-h2:text-[40px] prose-h3:text-[30px] prose-p:font-serif prose-p:text-xl prose-p:leading-relaxed max-w-none prose-li:font-serif prose-li:text-xl">
         <Markdown 
