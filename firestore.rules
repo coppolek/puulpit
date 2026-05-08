@@ -69,15 +69,43 @@ service cloud.firestore {
       allow delete: if isValidId(userId) && (isHardcodedAdmin() || isAdmin());
     }
 
+    // Categories Collection
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'slug', 'createdAt']) &&
+        (data.keys().size() == 3 || data.keys().size() == 4) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 100 &&
+        (data.description == null || (data.description is string && data.description.size() <= 500)) &&
+        true;
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      
+      allow create: if isValidId(categoryId) && 
+        (isHardcodedAdmin() || isAdmin()) &&
+        isValidCategory(incoming()) &&
+        incoming().createdAt == request.time;
+
+      allow update: if isValidId(categoryId) &&
+        (isHardcodedAdmin() || isAdmin()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'slug', 'description']);
+
+      allow delete: if isValidId(categoryId) && (isHardcodedAdmin() || isAdmin());
+    }
+
     // Posts Collection
     function isValidPost(data) {
       return data.keys().hasAll(['title', 'content', 'type', 'authorId', 'createdAt', 'updatedAt']) &&
-        data.keys().size() == 6 &&
+        // categoryId is optional so we can support existing posts. sizes can be 6 or 7
+        (data.keys().size() == 6 || data.keys().size() == 7) &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
         data.content is string && data.content.size() > 0 && data.content.size() <= 50000 &&
         data.type is string && (data.type == 'review' || data.type == 'tutorial') &&
+        (data.categoryId == null || data.categoryId is string) &&
         data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128 &&
-        // No request.time for timestamps in this simple validation since we separate create/update logic below
         true;
     }
 
@@ -97,7 +125,7 @@ service cloud.firestore {
         incoming().authorId == existing().authorId &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'type', 'updatedAt']);
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'type', 'categoryId', 'updatedAt']);
 
       allow delete: if isValidId(postId) && (isHardcodedAdmin() || isAdmin());
     }

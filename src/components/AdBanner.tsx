@@ -1,12 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export default function AdBanner() {
   useEffect(() => {
     try {
       // @ts-ignore
       (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (err) {
-      console.error('Adsense error', err);
+    } catch (err: any) {
+      if (!err.message?.includes('already have ads')) {
+        console.error('Adsense error', err);
+      }
     }
   }, []);
 

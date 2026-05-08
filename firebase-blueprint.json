@@ -11,6 +11,18 @@
       },
       "required": ["email", "isAdmin", "createdAt"]
     },
+    "Category": {
+      "title": "Category",
+      "description": "Blog post categories managed by admins.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "createdAt"]
+    },
     "Post": {
       "title": "Post",
       "description": "A blog post which can be a tutorial or review.",
@@ -19,6 +31,7 @@
         "title": { "type": "string" },
         "content": { "type": "string" },
         "type": { "type": "string", "enum": ["review", "tutorial"] },
+        "categoryId": { "type": "string" },
         "authorId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -44,6 +57,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "Stores user profiles."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Stores blog categories managed by admins."
     },
     "/posts/{postId}": {
       "schema": { "$ref": "#/entities/Post" },

@@ -4,6 +4,7 @@ import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serv
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Markdown from 'react-markdown';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Clock, Twitter, Facebook, Linkedin, Share2, Check, X, Loader2, ImageOff } from 'lucide-react';
 import AdBanner from '../components/AdBanner';
 
@@ -274,6 +275,23 @@ export default function PostDetails() {
 
   return (
     <article className="max-w-5xl mx-auto w-full px-6 py-12 md:py-24">
+      <Helmet>
+        <title>{post.title} - puulp.it</title>
+        <meta name="description" content={`Leggi l'articolo "${post.title}" su puulp.it.`} />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={shareUrl} />
+        <meta property="og:title" content={`${post.title} - puulp.it`} />
+        <meta property="og:description" content={`Ti invito a leggere questo nuovo articolo: "${post.title}". Scopri di più qui!`} />
+        
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={shareUrl} />
+        <meta property="twitter:title" content={`${post.title} - puulp.it`} />
+        <meta property="twitter:description" content={`Ti invito a leggere questo nuovo articolo: "${post.title}". Scopri di più qui!`} />
+      </Helmet>
+
       <Link to="/" className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.3em] hover:opacity-50 transition-opacity mb-16">
         <ArrowLeft size={16} className="mr-4" />
         Back
@@ -299,7 +317,7 @@ export default function PostDetails() {
               <Share2 size={12} className="mr-2" /> Share
             </span>
             <a 
-              href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(post.title)}`}
+              href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`Ti invito a leggere questo nuovo articolo: "${post.title}". Scopri di più qui:`)}`}
               target="_blank" 
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center border-2 border-black hover:bg-black hover:text-white transition-colors"
